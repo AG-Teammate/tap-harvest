@@ -198,7 +198,11 @@ def sync_endpoint(schema_name, endpoint=None, path=None, date_fields=None, with_
 
     start = get_start(schema_name)
     start_dt = pendulum.parse(start)
-    updated_since = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Add a 1-day Lookback Window to the API request
+    # This asks Harvest for data from 1 day BEFORE the stored state
+    lookback_dt = start_dt.subtract(days=1)
+    updated_since = lookback_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     with Transformer() as transformer:
         page = 1
@@ -230,7 +234,7 @@ def sync_endpoint(schema_name, endpoint=None, path=None, date_fields=None, with_
 
                 append_times_to_dates(item, date_fields)
 
-                if item[bookmark_property] >= start:
+                if pendulum.parse(item[bookmark_property]) >= lookback_dt:
                     singer.write_record(schema_name,
                                         item,
                                         time_extracted=time_extracted)
